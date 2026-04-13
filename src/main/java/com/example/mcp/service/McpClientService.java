@@ -34,6 +34,9 @@ public class McpClientService {
     @ConfigProperty(name = "mcp.server.name", defaultValue = "MCP Server")
     String serverName;
 
+    @ConfigProperty(name = "mcp.server.bearer-token", defaultValue = "")
+    String bearerToken;
+
     private McpClient mcpClient;
     private McpTransport transport;
     private String serverVersion = "unknown";
@@ -61,13 +64,22 @@ public class McpClientService {
         try {
             LOG.infof("Connecting to MCP server at: %s", serverUrl);
 
-            // Same transport as McpManager
-            transport = new StreamableHttpMcpTransport.Builder()
+            // Build transport with optional auth header
+            StreamableHttpMcpTransport.Builder transportBuilder = new StreamableHttpMcpTransport.Builder()
                     .url(serverUrl)
                     .logRequests(true)
                     .logResponses(true)
-                    .timeout(Duration.ofMinutes(5))
-                    .build();
+                    .timeout(Duration.ofMinutes(5));
+
+            if (bearerToken != null && !bearerToken.isEmpty()) {
+                LOG.info("Using Bearer token authentication");
+                Map<String, String> headers = new HashMap<>();
+                headers.put("Authorization", "Bearer " + bearerToken);
+                //headers.put("x-api-key", bearerToken);
+                transportBuilder.customHeaders(headers);
+            }
+
+            transport = transportBuilder.build();
 
             // Same client as McpManager
             mcpClient = new DefaultMcpClient.Builder()

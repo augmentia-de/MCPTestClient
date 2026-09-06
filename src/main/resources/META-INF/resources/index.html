@@ -103,6 +103,29 @@
             font-weight: bold;
         }
 
+        .server-select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 0.95em;
+            margin-bottom: 15px;
+            background: white;
+            color: #333;
+            cursor: pointer;
+        }
+
+        .server-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
         .tools-list {
             list-style: none;
         }
@@ -337,6 +360,159 @@
             margin-left: 5px;
         }
 
+        .tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.15);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 14px 20px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .tab-button.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border-bottom-color: #ffd166;
+        }
+
+        .chat-view {
+            display: none;
+            min-height: 600px;
+        }
+
+        .chat-header {
+            padding: 25px 30px 0;
+        }
+
+        .chat-header h2 {
+            color: #333;
+            margin-bottom: 6px;
+        }
+
+        .chat-header p {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .chat-session-bar {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .chat-session-bar label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9em;
+            margin-bottom: 6px;
+        }
+
+        .chat-session-input {
+            padding: 10px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 0.95em;
+            min-width: 220px;
+        }
+
+        .chat-session-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .chat-messages {
+            overflow-y: auto;
+            padding: 20px 30px;
+            background: #f8f9fa;
+            min-height: 380px;
+            max-height: 470px;
+            margin-top: 20px;
+            border-top: 1px solid #e9ecef;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .chat-message {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+
+        .chat-message.user {
+            align-items: flex-end;
+        }
+
+        .chat-message.assistant {
+            align-items: flex-start;
+        }
+
+        .chat-message-bubble {
+            max-width: 75%;
+            padding: 12px 16px;
+            border-radius: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .chat-message.user .chat-message-bubble {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .chat-message.assistant .chat-message-bubble {
+            background: white;
+            border: 2px solid #e9ecef;
+            color: #333;
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-message-bubble.error {
+            background: #fff3f3;
+            border-color: #dc3545;
+            color: #dc3545;
+        }
+
+        .chat-input-area {
+            display: flex;
+            gap: 12px;
+            padding: 20px 30px;
+            align-items: flex-end;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1em;
+            resize: vertical;
+            min-height: 60px;
+            max-height: 160px;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
         @media (max-width: 968px) {
             .content {
                 grid-template-columns: 1fr;
@@ -353,26 +529,32 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔧 MCP Test Client</h1>
+            <h1>MCP Test Client</h1>
             <p>Model Context Protocol - Interactive Tool Tester</p>
         </div>
 
-        <div class="content">
+        <div class="tabs" role="tablist">
+            <button id="tabTools" class="tab-button active" onclick="showTab('tools')">MCP Tools</button>
+            <button id="tabChat" class="tab-button" onclick="showTab('chat')">AI Chat</button>
+        </div>
+
+        <div class="content" id="toolsView">
             <div class="sidebar">
                 <div class="server-info">
-                    <h3>Server Information</h3>
+                    <h3>Server</h3>
+                    <div id="serverSelector"></div>
                     <div id="serverInfoContent">
                         <div class="loading">
                             <div class="spinner"></div>
                             <p>Loading server info...</p>
                         </div>
                     </div>
-                    <div style="margin-top: 15px; display: flex; gap: 10px;">
+                    <div class="btn-group">
                         <button id="connectBtn" class="btn btn-primary" style="flex: 1;" onclick="connectToServer()">
-                            🔌 Connect
+                            Connect
                         </button>
                         <button id="disconnectBtn" class="btn btn-secondary" style="flex: 1; display: none;" onclick="disconnectFromServer()">
-                            ⛔ Disconnect
+                            Disconnect
                         </button>
                     </div>
                 </div>
@@ -388,10 +570,36 @@
 
             <div class="main-content" id="mainContent">
                 <div class="empty-state">
-                    <div class="empty-state-icon">🔨</div>
+                    <div class="empty-state-icon"></div>
                     <h3>Select a Tool</h3>
                     <p>Choose a tool from the list on the left to view its details and test it.</p>
                 </div>
+            </div>
+        </div>
+
+        <div id="chatView" class="chat-view">
+            <div class="chat-header">
+                <h2>AI Chat Agent</h2>
+                <p id="chatStatusText">Loading chat status...</p>
+                <div class="chat-session-bar">
+                    <div style="display: flex; flex-direction: column;">
+                        <label for="chatSessionId">Session ID</label>
+                        <input id="chatSessionId" class="chat-session-input" value="default" placeholder="session id">
+                    </div>
+                    <button class="btn btn-secondary" onclick="updateChatSession()">Use Session</button>
+                    <button class="btn btn-secondary" onclick="newChatSession()">New Session</button>
+                    <button class="btn btn-secondary" onclick="clearChatHistory()">Clear History</button>
+                </div>
+            </div>
+            <div id="chatMessages" class="chat-messages">
+                <div class="empty-state">
+                    <h3>Chat</h3>
+                    <p>AI chat agent - uses the connected MCP server's tools.</p>
+                </div>
+            </div>
+            <div class="chat-input-area">
+                <textarea id="chatInput" class="chat-input" placeholder="Type your message... (Enter to send, Shift+Enter for new line)" onkeydown="onChatKeydown(event)"></textarea>
+                <button id="sendChatBtn" class="btn btn-primary" onclick="sendChatMessage()" disabled>Send</button>
             </div>
         </div>
     </div>
@@ -399,15 +607,46 @@
     <script>
         let currentTool = null;
         let tools = [];
+        let servers = [];
         let connectionCheckInterval = null;
 
-        // Load server info
+        async function loadServers() {
+            try {
+                const response = await fetch('/api/mcp/servers');
+                if (!response.ok) throw new Error('Failed to load servers');
+                servers = await response.json();
+                renderServerSelector();
+            } catch (error) {
+                console.error('Error loading servers:', error);
+            }
+        }
+
+        function renderServerSelector() {
+            if (servers.length === 0) return;
+            const html = `
+                <select id="serverSelect" class="server-select">
+                    ${servers.map(s => `
+                        <option value="${s.name}">${s.name}${s.hasAuth ? ' (auth)' : ''}</option>
+                    `).join('')}
+                </select>
+            `;
+            const container = document.getElementById('serverSelector');
+            if (servers.length > 1) {
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = `<p style="font-size:0.9em;color:#6c757d;margin-bottom:10px;">${servers[0].name}</p>`;
+            }
+        }
+
+        function getSelectedServer() {
+            const select = document.getElementById('serverSelect');
+            return select ? select.value : (servers.length > 0 ? servers[0].name : null);
+        }
+
         async function loadServerInfo() {
             try {
                 const response = await fetch('/api/mcp/server');
-                if (!response.ok) {
-                    throw new Error('Failed to load server info');
-                }
+                if (!response.ok) throw new Error('Failed to load server info');
                 const data = await response.json();
                 renderServerInfo(data);
             } catch (error) {
@@ -420,18 +659,18 @@
             }
         }
 
-        // Render server info
         function renderServerInfo(info) {
             const connectBtn = document.getElementById('connectBtn');
             const disconnectBtn = document.getElementById('disconnectBtn');
-            
+            const serverSelect = document.getElementById('serverSelect');
+
             let statusHtml = '';
-            
+
             if (info.connected) {
                 statusHtml = `
                     <div class="server-info-item">
-                        <span class="server-info-label">Name:</span>
-                        <span class="server-info-value">${info.name}</span>
+                        <span class="server-info-label">Server:</span>
+                        <span class="server-info-value">${info.activeServer || info.name || 'unknown'}</span>
                     </div>
                     <div class="server-info-item">
                         <span class="server-info-label">Version:</span>
@@ -443,11 +682,12 @@
                     </div>
                     <div class="server-info-item">
                         <span class="server-info-label">Status:</span>
-                        <span class="status-connected">● Connected</span>
+                        <span class="status-connected">Connected</span>
                     </div>
                 `;
                 connectBtn.style.display = 'none';
                 disconnectBtn.style.display = 'block';
+                if (serverSelect) serverSelect.disabled = true;
             } else if (info.connecting) {
                 statusHtml = `
                     <div class="server-info-item">
@@ -456,11 +696,12 @@
                     </div>
                     <div class="server-info-item">
                         <span class="server-info-label">Status:</span>
-                        <span style="color: #ffc107; font-weight: bold;">⏳ Connecting...</span>
+                        <span style="color: #ffc107; font-weight: bold;">Connecting...</span>
                     </div>
                 `;
                 connectBtn.style.display = 'none';
                 disconnectBtn.style.display = 'none';
+                if (serverSelect) serverSelect.disabled = true;
             } else {
                 statusHtml = `
                     <div class="server-info-item">
@@ -469,7 +710,7 @@
                     </div>
                     <div class="server-info-item">
                         <span class="server-info-label">Status:</span>
-                        <span class="status-disconnected">● Disconnected</span>
+                        <span class="status-disconnected">Disconnected</span>
                     </div>
                     ${info.error ? `
                         <div style="margin-top: 10px; padding: 10px; background: #fff3f3; border-radius: 6px; font-size: 0.85em; color: #dc3545;">
@@ -479,21 +720,24 @@
                 `;
                 connectBtn.style.display = 'block';
                 disconnectBtn.style.display = 'none';
+                if (serverSelect) serverSelect.disabled = false;
             }
-            
+
             document.getElementById('serverInfoContent').innerHTML = statusHtml;
         }
 
-        // Connect to server
         async function connectToServer() {
             try {
-                const response = await fetch('/api/mcp/connect', { method: 'POST' });
+                const serverName = getSelectedServer();
+                const url = serverName
+                    ? '/api/mcp/connect?server=' + encodeURIComponent(serverName)
+                    : '/api/mcp/connect';
+                const response = await fetch(url, { method: 'POST' });
                 if (!response.ok) {
                     const errorData = await response.json();
                     throw new Error(errorData.error || 'Connection failed');
                 }
-                
-                // Start polling for connection status
+
                 startConnectionCheck();
                 loadServerInfo();
             } catch (error) {
@@ -502,7 +746,6 @@
             }
         }
 
-        // Disconnect from server
         async function disconnectFromServer() {
             try {
                 const response = await fetch('/api/mcp/disconnect', { method: 'POST' });
@@ -510,13 +753,13 @@
                     const errorData = await response.json();
                     throw new Error(errorData.error || 'Disconnect failed');
                 }
-                
+
                 stopConnectionCheck();
                 loadServerInfo();
-                loadTools(); // Clear tools list
+                loadTools();
                 document.getElementById('mainContent').innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon">🔨</div>
+                        <div class="empty-state-icon"></div>
                         <h3>Select a Tool</h3>
                         <p>Connect to an MCP server and choose a tool from the list on the left.</p>
                     </div>
@@ -527,17 +770,14 @@
             }
         }
 
-        // Start polling connection status
         function startConnectionCheck() {
             stopConnectionCheck();
             connectionCheckInterval = setInterval(() => {
                 loadServerInfo();
-                // If connected, load tools
                 loadTools();
             }, 1000);
         }
 
-        // Stop polling connection status
         function stopConnectionCheck() {
             if (connectionCheckInterval) {
                 clearInterval(connectionCheckInterval);
@@ -545,12 +785,10 @@
             }
         }
 
-        // Load tools
         async function loadTools() {
             try {
                 const response = await fetch('/api/mcp/tools');
                 if (!response.ok) {
-                    // Server not connected, don't show error
                     tools = [];
                     renderToolsList();
                     return;
@@ -564,7 +802,6 @@
             }
         }
 
-        // Render tools list
         function renderToolsList() {
             if (tools.length === 0) {
                 document.getElementById('toolsList').innerHTML = `
@@ -576,7 +813,7 @@
             }
 
             const html = tools.map(tool => `
-                <div class="tool-item ${currentTool && currentTool.name === tool.name ? 'active' : ''}" 
+                <div class="tool-item ${currentTool && currentTool.name === tool.name ? 'active' : ''}"
                      onclick="selectTool('${tool.name}')">
                     <div class="tool-name">${tool.name}</div>
                     <div class="tool-description">${tool.description || 'No description'}</div>
@@ -586,23 +823,19 @@
             document.getElementById('toolsList').innerHTML = html;
         }
 
-        // Select tool
         async function selectTool(toolName) {
             try {
                 const response = await fetch(`/api/mcp/tools/${toolName}`);
-                if (!response.ok) {
-                    throw new Error('Failed to load tool details');
-                }
+                if (!response.ok) throw new Error('Failed to load tool details');
                 currentTool = await response.json();
                 renderToolDetail();
-                renderToolsList(); // Update active state
+                renderToolsList();
             } catch (error) {
                 console.error('Error loading tool:', error);
                 alert('Failed to load tool details');
             }
         }
 
-        // Render tool detail
         function renderToolDetail() {
             if (!currentTool) return;
 
@@ -610,11 +843,9 @@
             const properties = schema.properties || {};
             const required = schema.required || [];
 
-            // Create default arguments from schema
             const defaultArgs = {};
             Object.keys(properties).forEach(key => {
                 const prop = properties[key];
-                const isRequired = required.includes(key);
                 if (prop.type === 'string') {
                     defaultArgs[key] = '';
                 } else if (prop.type === 'number' || prop.type === 'integer') {
@@ -638,7 +869,7 @@
                     </div>
 
                     <div class="section">
-                        <h3>📋 Parameters</h3>
+                        <h3>Parameters</h3>
                         ${Object.keys(properties).length > 0 ? `
                             <div class="schema-info">
                                 ${Object.keys(properties).map(key => {
@@ -651,7 +882,7 @@
                                                 ${isRequired ? '<span class="schema-param-required">* Required</span>' : ''}
                                             </div>
                                             <div class="schema-param-type">
-                                                Type: ${prop.type || 'any'} 
+                                                Type: ${prop.type || 'any'}
                                                 ${prop.enum ? ` | Values: ${prop.enum.join(', ')}` : ''}
                                                 ${prop.description ? ` | ${prop.description}` : ''}
                                             </div>
@@ -663,28 +894,28 @@
                     </div>
 
                     <div class="section">
-                        <h3>✏️ Request Arguments (JSON)</h3>
-                        <textarea 
-                            id="jsonEditor" 
+                        <h3>Request Arguments (JSON)</h3>
+                        <textarea
+                            id="jsonEditor"
                             class="json-editor"
                         >${JSON.stringify(defaultArgs, null, 2)}</textarea>
                         <p style="color: #6c757d; margin-top: 10px; font-size: 0.9em;">
-                            💡 Edit the JSON above to customize your request. Click "Call Tool" to execute.
+                            Edit the JSON above to customize your request. Click "Call Tool" to execute.
                         </p>
                     </div>
 
                     <div class="section">
                         <button class="btn btn-primary" onclick="callTool()">
-                            🚀 Call Tool
+                            Call Tool
                         </button>
                         <button class="btn btn-secondary" onclick="resetJson()">
-                            🔄 Reset JSON
+                            Reset JSON
                         </button>
                     </div>
 
                     <div id="resultContainer" style="display: none;">
                         <div class="section">
-                            <h3>📤 Result</h3>
+                            <h3>Result</h3>
                             <div id="resultBox" class="result-box">
                                 <pre id="resultContent" class="result-content"></pre>
                             </div>
@@ -696,20 +927,16 @@
             document.getElementById('mainContent').innerHTML = html;
         }
 
-        // Reset JSON to default
         function resetJson() {
-            if (currentTool) {
-                renderToolDetail();
-            }
+            if (currentTool) renderToolDetail();
         }
 
-        // Call tool
         async function callTool() {
             if (!currentTool) return;
 
             const jsonEditor = document.getElementById('jsonEditor');
             let args;
-            
+
             try {
                 args = JSON.parse(jsonEditor.value);
             } catch (error) {
@@ -728,9 +955,7 @@
             try {
                 const response = await fetch(`/api/mcp/tools/${currentTool.name}/call`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ arguments: args })
                 });
 
@@ -740,14 +965,13 @@
                 }
 
                 const result = await response.json();
-                
+
                 if (result.error) {
                     resultBox.className = 'result-box error';
                 } else {
                     resultBox.className = 'result-box success';
                 }
 
-                // Format result
                 const formattedResult = result.content.map(c => c.text).join('\n\n');
                 resultContent.textContent = formattedResult;
 
@@ -757,10 +981,174 @@
             }
         }
 
-        // Load data on page load
+        let chatSessionId = 'default';
+
+        async function loadChatStatus() {
+            try {
+                const response = await fetch('/api/chat/status');
+                if (!response.ok) throw new Error('Failed to load chat status');
+                const status = await response.json();
+                const el = document.getElementById('chatStatusText');
+                if (!status.enabled) {
+                    el.innerHTML = '<span class="status-disconnected">AI chat is disabled</span> - set '
+                        + '<code>ai.chat.enabled=true</code> and configure the model in application.properties';
+                } else {
+                    el.innerHTML = '<span class="status-connected">Enabled</span>'
+                        + (status.hasMcpTools
+                            ? ' &middot; MCP tools available (' + (status.server || 'connected') + ')'
+                            : ' &middot; No MCP connection - agent running without tools');
+                }
+                const sendBtn = document.getElementById('sendChatBtn');
+                if (sendBtn) sendBtn.disabled = !status.enabled || status.sending;
+            } catch (error) {
+                console.error('Error loading chat status:', error);
+                document.getElementById('chatStatusText').textContent = 'Failed to load chat status';
+            }
+        }
+
+        async function loadChatHistory() {
+            try {
+                const response = await fetch('/api/chat/history?sessionId=' + encodeURIComponent(chatSessionId));
+                if (!response.ok) throw new Error('Failed to load chat history');
+                renderChatHistory(await response.json());
+            } catch (error) {
+                console.error('Error loading chat history:', error);
+                document.getElementById('chatMessages').innerHTML = `
+                    <div class="alert alert-error">Failed to load chat history</div>
+                `;
+            }
+        }
+
+        function renderChatHistory(history) {
+            const container = document.getElementById('chatMessages');
+            if (!history || history.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No messages yet</h3>
+                        <p>Start chatting with the AI agent. It can use the connected MCP server's tools.</p>
+                    </div>
+                `;
+                return;
+            }
+            container.innerHTML = history.map(h => `
+                <div class="chat-message ${h.role === 'user' ? 'user' : 'assistant'}">
+                    <div class="chat-message-bubble">${escapeHtml(h.content)}</div>
+                </div>
+            `).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function appendChatMessage(role, text, isError) {
+            const container = document.getElementById('chatMessages');
+            container.innerHTML += `
+                <div class="chat-message ${role === 'user' ? 'user' : 'assistant'}">
+                    <div class="chat-message-bubble${isError ? ' error' : ''}">${escapeHtml(text)}</div>
+                </div>
+            `;
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML;
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const sendBtn = document.getElementById('sendChatBtn');
+            sendBtn.disabled = true;
+            input.disabled = true;
+            input.value = '';
+
+            try {
+                if (!document.querySelector('#chatMessages .chat-message')) {
+                    document.getElementById('chatMessages').innerHTML = '';
+                }
+                appendChatMessage('user', message);
+                appendChatMessage('assistant', 'Thinking...');
+
+                const response = await fetch('/api/chat/message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId: chatSessionId, message: message })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to send message');
+                }
+
+                loadChatHistory();
+            } catch (error) {
+                appendChatMessage('assistant', 'Error: ' + error.message, true);
+            } finally {
+                sendBtn.disabled = false;
+                input.disabled = false;
+                input.focus();
+            }
+        }
+
+        async function clearChatHistory() {
+            try {
+                const response = await fetch('/api/chat/history?sessionId=' + encodeURIComponent(chatSessionId), { method: 'DELETE' });
+                if (!response.ok) throw new Error('Failed to clear history');
+                loadChatHistory();
+            } catch (error) {
+                alert('Failed to clear history: ' + error.message);
+            }
+        }
+
+        function newChatSession() {
+            chatSessionId = 'session-' + Date.now();
+            document.getElementById('chatSessionId').value = chatSessionId;
+            document.getElementById('chatInput').value = '';
+            loadChatHistory();
+            loadChatStatus();
+        }
+
+        function updateChatSession() {
+            chatSessionId = document.getElementById('chatSessionId').value.trim() || 'default';
+            document.getElementById('chatSessionId').value = chatSessionId;
+            document.getElementById('chatInput').value = '';
+            loadChatHistory();
+            loadChatStatus();
+        }
+
+        function onChatKeydown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendChatMessage();
+            }
+        }
+
+        function showTab(tab) {
+            const toolsView = document.getElementById('toolsView');
+            const chatView = document.getElementById('chatView');
+            const tabTools = document.getElementById('tabTools');
+            const tabChat = document.getElementById('tabChat');
+
+            toolsView.style.display = tab === 'tools' ? 'grid' : 'none';
+            chatView.style.display = tab === 'chat' ? 'block' : 'none';
+            tabTools.className = 'tab-button' + (tab === 'tools' ? ' active' : '');
+            tabChat.className = 'tab-button' + (tab === 'chat' ? ' active' : '');
+
+            if (tab === 'chat') {
+                loadChatStatus();
+                loadChatHistory();
+            }
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
+            loadServers();
             loadServerInfo();
             loadTools();
+            chatSessionId = document.getElementById('chatSessionId').value || 'default';
+            loadChatStatus();
+            loadChatHistory();
         });
     </script>
 </body>

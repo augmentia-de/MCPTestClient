@@ -1,60 +1,130 @@
 package com.example.mcp.service;
 
+import com.example.mcp.config.McpServerConfig;
+import com.example.mcp.config.McpServersConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.mcp.client.DefaultMcpClient;
 import dev.langchain4j.mcp.client.McpClient;
 import dev.langchain4j.mcp.client.transport.McpTransport;
+import dev.langchain4j.mcp.client.transport.http.HttpMcpTransport;
 import dev.langchain4j.mcp.client.transport.http.StreamableHttpMcpTransport;
 import dev.langchain4j.service.tool.ToolExecutionResult;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+import java.io.InputStream;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * MCP Client Service - connects to MCP server, discovers tools, and executes them.
- * Uses LangChain4J StreamableHttpMcpTransport (same as McpManager).
- */
 @ApplicationScoped
 public class McpClientService {
 
     private static final Logger LOG = Logger.getLogger(McpClientService.class);
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    @ConfigProperty(name = "mcp.server.url", defaultValue = "http://localhost:8480/mcp")
-    String serverUrl;
+    private static final String DEFAULT_CONFIG_FILE = "mcp-servers.json";
 
-    @ConfigProperty(name = "mcp.server.name", defaultValue = "MCP Server")
-    String serverName;
+    @ConfigProperty(name = "mcp.config.path", defaultValue = "./config")
+    String configPath;
 
-    @ConfigProperty(name = "mcp.server.bearer-token", defaultValue = "")
-    String bearerToken;
-
+    private List<McpServerConfig> configuredServers = List.of();
     private McpClient mcpClient;
     private McpTransport transport;
     private String serverVersion = "unknown";
     private final Map<String, ToolSpecification> toolCache = new ConcurrentHashMap<>();
     private final AtomicBoolean connecting = new AtomicBoolean(false);
     private String connectionError = null;
+    private String activeServerName = null;
+    private String activeServerUrl = null;
 
-    /**
-     * Connect to the MCP server.
-     */
+    @PostConstruct
+    void init() {
+        loadServerConfig();
+    }
+
+    private void loadServerConfig() {
+        // Try external config path first (e.g. ./config/mcp-servers.json)
+        java.nio.file.Path externalPath = java.nio.file.Paths.get(configPath, DEFAULT_CONFIG_FILE);
+        try {
+            if (java.nio.file.Files.exists(externalPath)) {
+                LOG.infof("Loading MCP server config from: %s", externalPath.toAbsolutePath());
+                McpServersConfig config = JSON.readValue(externalPath.toFile(), McpServersConfig.class);
+                if (config.getServers() != null && !config.getServers().isEmpty()) {
+                    configuredServers = config.getServers();
+                    LOG.infof("Loaded %d MCP server(s) from %s", configuredServers.size(), externalPath.toAbsolutePath());
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            LOG.warnf("Failed to load config from %s: %s", externalPath.toAbsolutePath(), e.getMessage());
+        }
+
+        // Fallback: classpath resource
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream(DEFAULT_CONFIG_FILE)) {
+            if (is == null) {
+                LOG.warnf("Config file '%s' not found on classpath", DEFAULT_CONFIG_FILE);
+                configuredServers = List.of();
+                return;
+            }
+            McpServersConfig config = JSON.readValue(is, McpServersConfig.class);
+            if (config.getServers() == null || config.getServers().isEmpty()) {
+                LOG.warn("No servers defined in mcp-servers.json");
+                configuredServers = List.of();
+                return;
+            }
+            configuredServers = config.getServers();
+            LOG.infof("Loaded %d MCP server(s) from classpath:%s", configuredServers.size(), DEFAULT_CONFIG_FILE);
+        } catch (MismatchedInputException e) {
+            LOG.warnf("Config file '%s' is empty or malformed: %s", DEFAULT_CONFIG_FILE, e.getMessage());
+            configuredServers = List.of();
+        } catch (Exception e) {
+            LOG.errorf("Failed to load config file '%s': %s", DEFAULT_CONFIG_FILE, e.getMessage());
+            configuredServers = List.of();
+        }
+    }
+
+    public List<McpServerConfig> getConfiguredServers() {
+        return Collections.unmodifiableList(configuredServers);
+    }
+
     public synchronized void connect() {
+        if (configuredServers.isEmpty()) {
+            connectionError = "No MCP servers configured";
+            return;
+        }
+        connect(configuredServers.get(0).getName());
+    }
+
+    public synchronized void connect(String serverName) {
         if (connecting.get()) {
             LOG.info("Connection already in progress");
             return;
         }
 
+        if (isConnected() && serverName.equals(activeServerName)) {
+            LOG.infof("Already connected to '%s'", serverName);
+            return;
+        }
+
         if (isConnected()) {
-            LOG.info("Already connected to MCP server");
+            disconnect();
+        }
+
+        McpServerConfig server = configuredServers.stream()
+                .filter(s -> s.getName().equals(serverName))
+                .findFirst()
+                .orElse(null);
+
+        if (server == null) {
+            connectionError = "Server not found: " + serverName;
             return;
         }
 
@@ -62,52 +132,70 @@ public class McpClientService {
         connectionError = null;
 
         try {
-            LOG.infof("Connecting to MCP server at: %s", serverUrl);
+            LOG.infof("Connecting to MCP server '%s' at: %s", server.getName(), server.getUrl());
 
-            // Build transport with optional auth header
-            StreamableHttpMcpTransport.Builder transportBuilder = new StreamableHttpMcpTransport.Builder()
-                    .url(serverUrl)
-                    .logRequests(true)
-                    .logResponses(true)
-                    .timeout(Duration.ofMinutes(5));
+            String transportType = server.getTransport() != null ? server.getTransport().toUpperCase() : "STREAMABLE_HTTP";
 
-            if (bearerToken != null && !bearerToken.isEmpty()) {
-                LOG.info("Using Bearer token authentication");
-                Map<String, String> headers = new HashMap<>();
-                headers.put("Authorization", "Bearer " + bearerToken);
-                //headers.put("x-api-key", bearerToken);
-                transportBuilder.customHeaders(headers);
+            if ("SSE".equals(transportType)) {
+                HttpMcpTransport.Builder transportBuilder = new HttpMcpTransport.Builder()
+                        .sseUrl(server.getUrl())
+                        .logRequests(true)
+                        .logResponses(true)
+                        .timeout(Duration.ofMinutes(5));
+
+                String token = server.getBearerToken();
+                if (token != null && !token.isEmpty()) {
+                    LOG.info("Using Bearer token authentication for SSE transport");
+                    Map<String, String> headers = new HashMap<>();
+                    headers.put("Authorization", "Bearer " + token);
+                    transportBuilder.customHeaders(headers);
+                }
+
+                transport = transportBuilder.build();
+            } else {
+                StreamableHttpMcpTransport.Builder transportBuilder = new StreamableHttpMcpTransport.Builder()
+                        .url(server.getUrl())
+                        .logRequests(true)
+                        .logResponses(true)
+                        .timeout(Duration.ofMinutes(5));
+
+                String token = server.getBearerToken();
+                if (token != null && !token.isEmpty()) {
+                    LOG.info("Using Bearer token authentication");
+                    Map<String, String> headers = new HashMap<>();
+                    headers.put("Authorization", "Bearer " + token);
+                    transportBuilder.customHeaders(headers);
+                }
+
+                transport = transportBuilder.build();
             }
 
-            transport = transportBuilder.build();
-
-            // Same client as McpManager
             mcpClient = new DefaultMcpClient.Builder()
                     .transport(transport)
                     .build();
 
-            // Load tools
             refreshTools();
 
+            activeServerName = server.getName();
+            activeServerUrl = server.getUrl();
             serverVersion = "connected";
             connectionError = null;
-            LOG.infof("Connected to MCP server, loaded %d tools", toolCache.size());
+            LOG.infof("Connected to '%s', loaded %d tools", server.getName(), toolCache.size());
 
         } catch (Exception e) {
             connectionError = e.getMessage();
-            LOG.errorf("Failed to connect to MCP server: %s", e.getMessage());
+            LOG.errorf("Failed to connect to '%s': %s", serverName, e.getMessage());
             mcpClient = null;
             transport = null;
             serverVersion = "unknown";
             toolCache.clear();
+            activeServerName = null;
+            activeServerUrl = null;
         } finally {
             connecting.set(false);
         }
     }
 
-    /**
-     * Disconnect from the MCP server.
-     */
     public synchronized void disconnect() {
         if (mcpClient != null) {
             try {
@@ -120,6 +208,8 @@ public class McpClientService {
             transport = null;
             serverVersion = "unknown";
             toolCache.clear();
+            activeServerName = null;
+            activeServerUrl = null;
         }
     }
 
@@ -128,9 +218,6 @@ public class McpClientService {
         disconnect();
     }
 
-    /**
-     * Refresh the list of available tools from the server.
-     */
     public void refreshTools() {
         if (!isConnected()) {
             throw new IllegalStateException("Not connected to MCP server");
@@ -151,44 +238,26 @@ public class McpClientService {
         }
     }
 
-    /**
-     * Get server version info.
-     */
     public String getServerVersion() {
         return serverVersion;
     }
 
-    /**
-     * Get the configured server URL.
-     */
-    public String getServerUrl() {
-        return serverUrl;
+    public String getActiveServerName() {
+        return activeServerName;
     }
 
-    /**
-     * Get the server name.
-     */
-    public String getServerName() {
-        return serverName;
+    public String getActiveServerUrl() {
+        return activeServerUrl;
     }
 
-    /**
-     * Get all available tools.
-     */
     public List<ToolSpecification> getAllTools() {
         return new ArrayList<>(toolCache.values());
     }
 
-    /**
-     * Get a specific tool by name.
-     */
     public ToolSpecification getTool(String toolName) {
         return toolCache.get(toolName);
     }
 
-    /**
-     * Call a tool with the given arguments.
-     */
     public String callTool(String toolName, Map<String, Object> arguments) {
         if (!isConnected()) {
             throw new IllegalStateException("Not connected to MCP server. Please connect first.");
@@ -201,7 +270,6 @@ public class McpClientService {
 
         LOG.infof("Calling tool: %s with arguments: %s", toolName, arguments);
 
-        // Serialize arguments to JSON
         String argumentsJson;
         try {
             argumentsJson = JSON.writeValueAsString(arguments);
@@ -216,9 +284,7 @@ public class McpClientService {
                 .build();
 
         ToolExecutionResult result = mcpClient.executeTool(request);
-        
-        // Try different method names based on version
-        // In newer versions it's resultText(), in older it might be content() or text()
+
         try {
             return result.resultText();
         } catch (NoSuchMethodError e) {
@@ -230,9 +296,6 @@ public class McpClientService {
         }
     }
 
-    /**
-     * Convert ToolSpecification to a Map for JSON serialization.
-     */
     public Map<String, Object> toolToMap(ToolSpecification tool) {
         Map<String, Object> map = new HashMap<>();
         map.put("name", tool.name());
@@ -241,11 +304,10 @@ public class McpClientService {
         if (tool.parameters() != null) {
             try {
                 dev.langchain4j.model.chat.request.json.JsonObjectSchema params = tool.parameters();
-                
+
                 Map<String, Object> schema = new HashMap<>();
                 schema.put("type", "object");
-                
-                // Extract properties - params.properties() returns Map<String, JsonSchemaElement>
+
                 Map<String, Object> properties = new HashMap<>();
                 if (params.properties() != null) {
                     for (var entry : params.properties().entrySet()) {
@@ -253,15 +315,14 @@ public class McpClientService {
                     }
                 }
                 schema.put("properties", properties);
-                
+
                 if (params.required() != null && !params.required().isEmpty()) {
                     schema.put("required", new ArrayList<>(params.required()));
                 }
-                
+
                 map.put("inputSchema", schema);
             } catch (Exception e) {
                 LOG.debugf("Could not serialize parameters for tool %s: %s", tool.name(), e.getMessage());
-                // Fallback: return basic schema
                 Map<String, Object> basic = new HashMap<>();
                 basic.put("type", "object");
                 basic.put("properties", Map.of());
@@ -277,12 +338,9 @@ public class McpClientService {
         return map;
     }
 
-    /**
-     * Convert JsonSchemaElement to a Map for JSON serialization.
-     */
     private Map<String, Object> schemaElementToJson(dev.langchain4j.model.chat.request.json.JsonSchemaElement element) {
         Map<String, Object> schemaMap = new HashMap<>();
-        
+
         if (element instanceof dev.langchain4j.model.chat.request.json.JsonStringSchema s) {
             schemaMap.put("type", "string");
             if (s.description() != null) schemaMap.put("description", s.description());
@@ -313,30 +371,24 @@ public class McpClientService {
                 schemaMap.put("required", new ArrayList<>(s.required()));
             }
         } else {
-            // Fallback - just mark as unknown
             schemaMap.put("type", "unknown");
         }
-        
+
         return schemaMap;
     }
 
-    /**
-     * Check if the client is connected.
-     */
+    public McpClient getMcpClient() {
+        return mcpClient;
+    }
+
     public boolean isConnected() {
         return mcpClient != null;
     }
 
-    /**
-     * Check if a connection attempt is in progress.
-     */
     public boolean isConnecting() {
         return connecting.get();
     }
 
-    /**
-     * Get the last connection error message.
-     */
     public String getConnectionError() {
         return connectionError;
     }

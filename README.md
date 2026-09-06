@@ -31,14 +31,27 @@ Edit `src/main/resources/application.properties`:
 
 ```properties
 # Quarkus HTTP port
-quarkus.http.port=8082
-
-# MCP Server configuration
-# Use the BASE URL (StreamableHttpMcpTransport handles the endpoints internally)
-mcp.server.url=http://localhost:8480/mcp
+quarkus.http.port=${QUARKUS_HTTP_PORT:8085}
 ```
 
-> **Important**: Use the base URL without `/sse` or `/messages` suffix. The LangChain4j `StreamableHttpMcpTransport` handles the endpoint resolution automatically.
+MCP servers are **not** configured in `application.properties`. Define all servers in `config/mcp-servers.json` instead (or in `src/main/resources/mcp-servers.json` as classpath fallback):
+
+```json
+{
+  "servers": [
+    {
+      "name": "Playwright MCP",
+      "url": "http://localhost:3005/sse",
+      "bearerToken": "",
+      "transport": "SSE"
+    }
+  ]
+}
+```
+
+- `transport`: `STREAMABLE_HTTP` (default) or `SSE`.
+- `bearerToken`: optional; sent as `Authorization: Bearer <token>`.
+- All listed servers are loaded and selectable in the UI.
 
 ## Building
 
@@ -54,7 +67,7 @@ mvn clean package -DskipTests
 mvn quarkus:dev
 ```
 
-The application will be available at: http://localhost:8082
+The application will be available at: http://localhost:8085
 
 ### Production Mode
 
@@ -73,7 +86,7 @@ java -jar target/quarkus-app/quarkus-run.jar
 
 1. **Start your MCP server** - Ensure your MCP server is running and accessible
 2. **Start the MCP Test Client** - Run in dev or production mode
-3. **Open the web interface** - Navigate to http://localhost:8082
+3. **Open the web interface** - Navigate to http://localhost:8085
 4. **Connect to server** - Click the **🔌 Connect** button in the sidebar
 5. **Browse tools** - The left sidebar shows all available tools
 6. **Select a tool** - Click on a tool to view its details and parameter schema
@@ -99,13 +112,13 @@ The application provides the following REST endpoints:
 
 ```bash
 # Connect to server
-curl -X POST http://localhost:8082/api/mcp/connect
+curl -X POST http://localhost:8085/api/mcp/connect
 
 # List tools
-curl http://localhost:8082/api/mcp/tools
+curl http://localhost:8085/api/mcp/tools
 
 # Call a tool
-curl -X POST http://localhost:8082/api/mcp/tools/my-tool/call \
+curl -X POST http://localhost:8085/api/mcp/tools/my-tool/call \
   -H "Content-Type: application/json" \
   -d '{"arguments": {"param1": "value1", "param2": 42}}'
 ```
@@ -202,7 +215,7 @@ You can implement your own MCP server using:
 
 ### Port Conflict
 
-- The app runs on port 8082 by default
+- The app runs on port 8085 by default
 - Change `quarkus.http.port` in `application.properties` if needed
 
 ## License

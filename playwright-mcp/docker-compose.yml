@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  playwright-mcp:
+    build: .
+    container_name: playwright-mcp
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      # Headless-Modus für Container
+      # - PLAYWRIGHT_HEADLESS=true
+      # UI-Modus: Browser-Fenster wird auf dem Host-Display angezeigt
+      - PLAYWRIGHT_HEADLESS=false
+      - DISPLAY=:1
+      - XDG_SESSION_TYPE=x11
+    ports:
+      - "${MCP_PORT:-3002}:3002"
+    networks:
+      - mcp-network
+    # Optional: Temporäre Daten für Downloads
+    volumes:
+      - playwright-downloads:/downloads
+      # X11-Socket für UI-Modus (Browser auf Host-Desktop sichtbar)
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3002/sse').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  playwright-downloads:
+
+networks:
+  mcp-network:
+    driver: bridge

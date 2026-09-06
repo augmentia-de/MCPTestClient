@@ -15,9 +15,10 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <quarkus.platform.version>3.33.1</quarkus.platform.version>
-        <langchain4j.version>1.12.2</langchain4j.version>
-        <langchain4j-mcp.version>1.12.2-beta22</langchain4j-mcp.version>
+        <quarkus.platform.version>3.33.2</quarkus.platform.version>
+        <quarkus-langchain4j.version>1.10.0</quarkus-langchain4j.version>
+        <langchain4j.version>1.15.0</langchain4j.version>
+        <langchain4j-mcp.version>1.15.0-beta25</langchain4j-mcp.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.2</surefire-plugin.version>
     </properties>
@@ -31,11 +32,19 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- LangChain4J BOM -->
+            <!-- LangChain4J BOM (imported first so langchain4j versions take precedence) -->
             <dependency>
                 <groupId>dev.langchain4j</groupId>
                 <artifactId>langchain4j-bom</artifactId>
                 <version>${langchain4j.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Quarkus LangChain4j BOM -->
+            <dependency>
+                <groupId>io.quarkiverse.langchain4j</groupId>
+                <artifactId>quarkus-langchain4j-bom</artifactId>
+                <version>${quarkus-langchain4j.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -53,6 +62,12 @@
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-mcp</artifactId>
             <version>${langchain4j-mcp.version}</version>
+        </dependency>
+
+        <!-- Quarkus LangChain4j OpenAI (AI chat agent) -->
+        <dependency>
+            <groupId>io.quarkiverse.langchain4j</groupId>
+            <artifactId>quarkus-langchain4j-openai</artifactId>
         </dependency>
 
         <!-- Arc (CDI) -->

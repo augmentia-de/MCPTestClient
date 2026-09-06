@@ -1,0 +1,10 @@
+{
+  "servers": [
+    {
+      "name": "Playwright MCP",
+      "url": "http://localhost:3005/sse",
+      "bearerToken": "",
+      "transport": "SSE"
+    }
+  ]
+}

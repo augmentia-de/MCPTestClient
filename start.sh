@@ -35,40 +35,6 @@ fi
 echo "✓ Maven version: $(mvn -version 2>&1 | head -n 1)"
 echo ""
 
-# Check if MCP server URL is configured
-CONFIG_FILE="src/main/resources/application.properties"
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "⚠️  Warning: Configuration file not found"
-    echo "   Creating default configuration..."
-    mkdir -p src/main/resources
-    cat > "$CONFIG_FILE" << EOF
-# Quarkus configuration
-quarkus.http.port=8080
-
-# MCP Server configuration
-mcp.server.url=http://localhost:3001
-mcp.server.name=Default MCP Server
-EOF
-    echo "✓ Default configuration created"
-    echo ""
-fi
-
-# Ask user for MCP server URL if not configured or want to change
-CURRENT_URL=$(grep "mcp.server.url" "$CONFIG_FILE" 2>/dev/null | cut -d'=' -f2 | tr -d '[:space:]')
-if [ -n "$CURRENT_URL" ]; then
-    echo "Current MCP Server URL: $CURRENT_URL"
-    read -p "Change MCP server URL? (y/N): " -n 1 -r
-    echo ""
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        read -p "Enter MCP Server URL: " NEW_URL
-        if [ -n "$NEW_URL" ]; then
-            sed -i "s|mcp.server.url=.*|mcp.server.url=$NEW_URL|" "$CONFIG_FILE"
-            echo "✓ Updated MCP server URL to: $NEW_URL"
-            echo ""
-        fi
-    fi
-fi
-
 # Build the application
 echo "🔨 Building application..."
 mvn clean package -DskipTests -q
@@ -86,7 +52,7 @@ echo "🚀 Starting MCP Test Client..."
 echo ""
 echo "========================================="
 echo "  Application will be available at:"
-echo "  http://localhost:8080"
+echo "  http://localhost:8085"
 echo "========================================="
 echo ""
 echo "Press Ctrl+C to stop the application"
